@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env
+temp_uploads/*
+!temp_uploads/.gitkeep
+*.xlsx
+!Excel Tracking Number MatcherSRS.docx
+.DS_Store
+.pytest_cache/

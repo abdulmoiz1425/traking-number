@@ -1,0 +1,15 @@
+[Unit]
+Description=Excel Tracking Number Matcher (Gunicorn)
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/path/to/tracking-number
+EnvironmentFile=/path/to/tracking-number/.env
+ExecStart=/path/to/tracking-number/deploy/gunicorn_start.sh
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

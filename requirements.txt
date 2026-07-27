@@ -1,0 +1,10 @@
+Flask
+openpyxl
+Werkzeug
+python-dotenv
+gunicorn
+pytest
+google-auth
+google-auth-oauthlib
+google-auth-httplib2
+google-api-python-client

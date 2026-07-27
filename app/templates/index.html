@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Excel Tracking Number Matcher</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+  <header>
+    <h1>Excel Tracking Number Matcher</h1>
+    <p>Paste a link to your tracking-number Google Sheet and your main Google Sheet. The system will find matching tracking numbers and highlight their complete rows in red &mdash; directly in your main sheet.</p>
+  </header>
+
+  <section id="signInSection" class="sign-in-section hidden">
+    <p>Sign in with Google to connect your Sheets.</p>
+    <a id="googleSignInBtn" class="button" href="/google/login">Sign in with Google</a>
+  </section>
+
+  <section id="uploadSection" class="upload-section hidden">
+    <div class="upload-card" id="trackingCard">
+      <h2>Tracking Number Sheet</h2>
+      <label for="trackingUrlInput">Google Sheet link</label>
+      <input type="text" id="trackingUrlInput" placeholder="https://docs.google.com/spreadsheets/d/...">
+      <p class="filename" id="trackingFilename"></p>
+
+      <label for="trackingWorksheetSelect">Worksheet</label>
+      <select id="trackingWorksheetSelect" disabled></select>
+
+      <label for="trackingColumnSelect">Tracking Number Column</label>
+      <select id="trackingColumnSelect" disabled></select>
+
+      <label class="checkbox-label">
+        <input type="checkbox" id="trackingHasHeader" checked>
+        First row contains headers
+      </label>
+    </div>
+
+    <div class="upload-card" id="mainCard">
+      <h2>Main Sheet</h2>
+      <label for="mainUrlInput">Google Sheet link</label>
+      <input type="text" id="mainUrlInput" placeholder="https://docs.google.com/spreadsheets/d/...">
+      <p class="filename" id="mainFilename"></p>
+
+      <label for="mainWorksheetSelect">Worksheet</label>
+      <select id="mainWorksheetSelect" disabled></select>
+
+      <label for="mainColumnSelect">Tracking Number Column</label>
+      <select id="mainColumnSelect" disabled></select>
+
+      <label class="checkbox-label">
+        <input type="checkbox" id="mainHasHeader" checked>
+        First row contains headers
+      </label>
+    </div>
+  </section>
+
+  <section id="processingSection" class="processing-section hidden">
+    <button id="processBtn" disabled>Process Files</button>
+    <button id="resetBtn">Reset</button>
+    <div id="loadingIndicator" class="loading hidden">
+      <span class="spinner"></span>
+      Processing Google Sheets. Please do not refresh the page.
+    </div>
+  </section>
+
+  <div id="errorArea" class="error-area hidden"></div>
+
+  <section id="resultsArea" class="results-area hidden">
+    <h2>Processing Summary</h2>
+    <ul id="summaryList"></ul>
+    <div class="result-actions">
+      <a id="viewSheetBtn" class="button" href="#" target="_blank" rel="noopener">View Updated Google Sheet &#8599;</a>
+      <a id="downloadUnmatchedBtn" class="button" href="#" download>Download Unmatched Tracking Numbers</a>
+      <button id="processAnotherBtn">Process Another File</button>
+    </div>
+  </section>
+
+  <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

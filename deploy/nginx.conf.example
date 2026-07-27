@@ -1,0 +1,21 @@
+server {
+    listen 80;
+    server_name your-domain.example;
+
+    # Redirect all HTTP to HTTPS once a certificate is installed (e.g. via certbot).
+    # return 301 https://$host$request_uri;
+
+    client_max_body_size 25m;  # match/exceed MAX_CONTENT_LENGTH_MB in .env
+
+    location /static/ {
+        alias /path/to/tracking-number/app/static/;
+    }
+
+    location / {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
