@@ -11,12 +11,12 @@ header p {
   color: #555;
 }
 
-.sign-in-section {
+.info-banner {
   border: 1px solid #ddd;
   border-radius: 8px;
-  padding: 24px;
+  padding: 16px 20px;
   margin: 24px 0;
-  text-align: center;
+  background: #f5f8ff;
 }
 
 .upload-section {

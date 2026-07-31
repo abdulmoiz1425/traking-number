@@ -12,12 +12,14 @@
     <p>Paste a link to your tracking-number Google Sheet and your main Google Sheet. The system will find matching tracking numbers and highlight their complete rows in red &mdash; directly in your main sheet.</p>
   </header>
 
-  <section id="signInSection" class="sign-in-section hidden">
-    <p>Sign in with Google to connect your Sheets.</p>
-    <a id="googleSignInBtn" class="button" href="/google/login">Sign in with Google</a>
+  <section id="serviceAccountBanner" class="info-banner hidden">
+    <p>
+      Before pasting a link below, share each Google Sheet with this account
+      (Editor access): <strong id="serviceAccountEmail"></strong>
+    </p>
   </section>
 
-  <section id="uploadSection" class="upload-section hidden">
+  <section id="uploadSection" class="upload-section">
     <div class="upload-card" id="trackingCard">
       <h2>Tracking Number Sheet</h2>
       <label for="trackingUrlInput">Google Sheet link</label>
@@ -55,7 +57,7 @@
     </div>
   </section>
 
-  <section id="processingSection" class="processing-section hidden">
+  <section id="processingSection" class="processing-section">
     <button id="processBtn" disabled>Process Files</button>
     <button id="resetBtn">Reset</button>
     <div id="loadingIndicator" class="loading hidden">

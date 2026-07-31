@@ -14,7 +14,10 @@ class Config:
     MAX_CONTENT_LENGTH = int(os.environ.get("MAX_CONTENT_LENGTH_MB", 20)) * 1024 * 1024
     FILE_RETENTION_MINUTES = int(os.environ.get("FILE_RETENTION_MINUTES", 30))
 
-    GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "")
-    GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET", "")
-    GOOGLE_REDIRECT_URI = os.environ.get("GOOGLE_REDIRECT_URI", "http://127.0.0.1:5000/google/callback")
+    # Path to the service account JSON key file downloaded from Google Cloud
+    # Console (see README "Google Cloud setup"). Relative paths are resolved
+    # against the project root.
+    GOOGLE_SERVICE_ACCOUNT_FILE = os.path.join(
+        BASE_DIR, os.environ.get("GOOGLE_SERVICE_ACCOUNT_FILE", "service_account.json")
+    )
     GOOGLE_SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]

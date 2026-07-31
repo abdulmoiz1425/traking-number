@@ -1,12 +1,8 @@
-from flask import Blueprint, current_app, jsonify, redirect, render_template, request, send_file
+from flask import Blueprint, current_app, jsonify, render_template, request, send_file
 
 from app.errors import FileValidationError
 from app.services.download_store import register_download, resolve_download
-from app.services.google_auth_service import (
-    get_authorization_url,
-    is_authenticated,
-    store_credentials_from_callback,
-)
+from app.services.google_auth_service import get_service_account_email
 from app.services.sheets_processing_service import (
     cleanup_stale_output_folders,
     clear_sheets_session,
@@ -26,25 +22,13 @@ def index():
     return render_template("index.html")
 
 
-@main_bp.route("/google/login")
-def google_login():
-    return redirect(get_authorization_url())
-
-
-@main_bp.route("/google/callback")
-def google_callback():
-    if request.args.get("error"):
-        return redirect("/?auth_error=1")
+@main_bp.route("/service-account-email")
+def service_account_email():
     try:
-        store_credentials_from_callback(request.url)
-    except FileValidationError:
-        return redirect("/?auth_error=1")
-    return redirect("/")
-
-
-@main_bp.route("/auth-status")
-def auth_status():
-    return jsonify({"authenticated": is_authenticated()})
+        email = get_service_account_email()
+    except FileValidationError as exc:
+        return jsonify({"email": None, "error": str(exc)})
+    return jsonify({"email": email})
 
 
 @main_bp.route("/connect-sheets", methods=["POST"])

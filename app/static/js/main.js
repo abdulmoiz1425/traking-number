@@ -1,7 +1,8 @@
 (function () {
   const $ = (id) => document.getElementById(id);
 
-  const signInSection = $("signInSection");
+  const serviceAccountBanner = $("serviceAccountBanner");
+  const serviceAccountEmail = $("serviceAccountEmail");
   const uploadSection = $("uploadSection");
   const processingSection = $("processingSection");
   const resultsArea = $("resultsArea");
@@ -222,25 +223,18 @@
       .catch(() => {});
   }
 
-  function initAuthState() {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("auth_error")) {
-      showError("Google sign-in failed. Please try again.");
-    }
-
-    fetch("/auth-status")
+  function loadServiceAccountEmail() {
+    fetch("/service-account-email")
       .then((response) => response.json())
       .then((data) => {
-        if (data.authenticated) {
-          signInSection.classList.add("hidden");
-          uploadSection.classList.remove("hidden");
-          processingSection.classList.remove("hidden");
-          restoreSessionState();
-        } else {
-          signInSection.classList.remove("hidden");
+        if (data.email) {
+          serviceAccountEmail.textContent = data.email;
+          serviceAccountBanner.classList.remove("hidden");
+        } else if (data.error) {
+          showError(data.error);
         }
       })
-      .catch(() => showError("Could not reach the server. Please try again."));
+      .catch(() => {});
   }
 
   trackingUrlInput.addEventListener("change", maybeConnectSheets);
@@ -257,5 +251,6 @@
   resetBtn.addEventListener("click", resetAll);
   processAnotherBtn.addEventListener("click", resetAll);
 
-  initAuthState();
+  loadServiceAccountEmail();
+  restoreSessionState();
 })();

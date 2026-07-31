@@ -2,7 +2,9 @@ import uuid
 
 from app.errors import FileValidationError
 
-# token -> {"path": str, "filename": str}. In-memory, single-process (see upload_service).
+# token -> {"path": str, "filename": str}. In-memory, single-process — same
+# pattern/limitation as the other _STORE dicts in this app (see README's
+# "single worker only" deployment note).
 _DOWNLOAD_STORE = {}
 
 

@@ -40,9 +40,20 @@ def test_index_serves_ok(client):
     assert resp.status_code == 200
 
 
-def test_auth_status_false_when_not_signed_in(client):
-    resp = client.get("/auth-status")
-    assert resp.get_json() == {"authenticated": False}
+def test_service_account_email_when_configured(client, monkeypatch):
+    monkeypatch.setattr(routes, "get_service_account_email", lambda: "bot@project.iam.gserviceaccount.com")
+    resp = client.get("/service-account-email")
+    assert resp.get_json() == {"email": "bot@project.iam.gserviceaccount.com"}
+
+
+def test_service_account_email_when_not_configured(client):
+    # No real service_account.json present in the test environment, so the
+    # real (unmocked) credential loader reports its own clear error instead
+    # of throwing.
+    resp = client.get("/service-account-email")
+    data = resp.get_json()
+    assert data["email"] is None
+    assert "not configured" in data["error"].lower()
 
 
 def test_sheets_status_false_when_nothing_connected(client):
@@ -50,10 +61,10 @@ def test_sheets_status_false_when_nothing_connected(client):
     assert resp.get_json() == {"connected": False}
 
 
-def test_connect_sheets_requires_sign_in(client):
+def test_connect_sheets_requires_credentials_when_unconfigured(client):
     resp = client.post("/connect-sheets", json={"tracking_sheet_url": "x", "main_sheet_url": "y"})
     assert resp.status_code == 400
-    assert "sign in" in resp.get_json()["error"].lower()
+    assert "not configured" in resp.get_json()["error"].lower()
 
 
 def test_connect_sheets_requires_both_links(client):
@@ -130,19 +141,6 @@ def test_process_missing_column_selection_returns_error(client, monkeypatch):
     )
     resp = client.post("/process", json={"tracking_sheet": "Sheet1", "main_sheet": "Orders"})
     assert resp.status_code == 400
-
-
-def test_google_login_redirects(client, monkeypatch):
-    monkeypatch.setattr(routes, "get_authorization_url", lambda: "https://accounts.google.com/fake-auth-url")
-    resp = client.get("/google/login")
-    assert resp.status_code == 302
-    assert resp.headers["Location"] == "https://accounts.google.com/fake-auth-url"
-
-
-def test_google_callback_with_denied_consent_redirects_home_with_flag(client):
-    resp = client.get("/google/callback?error=access_denied")
-    assert resp.status_code == 302
-    assert "auth_error=1" in resp.headers["Location"]
 
 
 def test_download_unmatched_with_invalid_token_returns_404(client):
