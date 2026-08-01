@@ -3,7 +3,6 @@ __pycache__/
 .venv/
 venv/
 .env
-service_account*.json
 temp_uploads/*
 !temp_uploads/.gitkeep
 *.xlsx

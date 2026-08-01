@@ -14,10 +14,13 @@ class Config:
     MAX_CONTENT_LENGTH = int(os.environ.get("MAX_CONTENT_LENGTH_MB", 20)) * 1024 * 1024
     FILE_RETENTION_MINUTES = int(os.environ.get("FILE_RETENTION_MINUTES", 30))
 
-    # Path to the service account JSON key file downloaded from Google Cloud
-    # Console (see README "Google Cloud setup"). Relative paths are resolved
-    # against the project root.
-    GOOGLE_SERVICE_ACCOUNT_FILE = os.path.join(
-        BASE_DIR, os.environ.get("GOOGLE_SERVICE_ACCOUNT_FILE", "service_account.json")
-    )
-    GOOGLE_SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
+    GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "")
+    GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET", "")
+    GOOGLE_REDIRECT_URI = os.environ.get("GOOGLE_REDIRECT_URI", "http://127.0.0.1:5000/google/callback")
+    # Google API key (not secret - safe to send to frontend JS) used by the
+    # Google Picker widget in the browser.
+    GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "")
+    # drive.file: per-file access only to sheets the user explicitly picks via
+    # Google Picker - deliberately narrower than the full "spreadsheets" scope
+    # so this app avoids Google's stricter sensitive-scope verification path.
+    GOOGLE_SCOPES = ["https://www.googleapis.com/auth/drive.file"]

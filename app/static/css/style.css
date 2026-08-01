@@ -11,12 +11,23 @@ header p {
   color: #555;
 }
 
-.info-banner {
+.sign-in-section,
+.picker-section {
   border: 1px solid #ddd;
   border-radius: 8px;
-  padding: 16px 20px;
+  padding: 24px;
   margin: 24px 0;
-  background: #f5f8ff;
+  text-align: center;
+}
+
+.link-button {
+  background: none;
+  border: none;
+  color: #1a73e8;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0;
+  font-size: 0.9em;
 }
 
 .upload-section {

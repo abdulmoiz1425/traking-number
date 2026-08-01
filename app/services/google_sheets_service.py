@@ -1,6 +1,7 @@
 import re
 
 import googleapiclient.discovery
+from flask import current_app
 from googleapiclient.errors import HttpError
 from openpyxl.utils import get_column_letter
 
@@ -10,6 +11,7 @@ _URL_ID_PATTERN = re.compile(r"/spreadsheets/d/([a-zA-Z0-9_-]+)")
 _BARE_ID_PATTERN = re.compile(r"^[a-zA-Z0-9_-]{20,}$")
 
 RED_BACKGROUND = {"red": 1, "green": 0, "blue": 0}
+GREEN_BACKGROUND = {"red": 0, "green": 1, "blue": 0}
 
 
 def extract_spreadsheet_id(url_or_id):
@@ -88,8 +90,11 @@ def inspect_tab_columns(values, max_example_rows=20):
     return columns
 
 
-def highlight_rows(service, spreadsheet_id, sheet_id_numeric, row_numbers, total_columns):
-    if not row_numbers:
+def highlight_rows(service, spreadsheet_id, sheet_id_numeric, row_colors, total_columns):
+    """row_colors: dict mapping a 1-based row number to a background color dict
+    (e.g. RED_BACKGROUND/GREEN_BACKGROUND). Mixed colors are sent as a single
+    batchUpdate call."""
+    if not row_colors:
         return
     requests = [
         {
@@ -101,14 +106,37 @@ def highlight_rows(service, spreadsheet_id, sheet_id_numeric, row_numbers, total
                     "startColumnIndex": 0,
                     "endColumnIndex": total_columns,
                 },
-                "cell": {"userEnteredFormat": {"backgroundColor": RED_BACKGROUND}},
+                "cell": {"userEnteredFormat": {"backgroundColor": color}},
                 "fields": "userEnteredFormat.backgroundColor",
             }
         }
-        for row_number in row_numbers
+        for row_number, color in row_colors.items()
     ]
     try:
         service.spreadsheets().batchUpdate(spreadsheetId=spreadsheet_id, body={"requests": requests}).execute()
+    except HttpError as exc:
+        raise _wrap_http_error(exc)
+
+
+def write_values(service, spreadsheet_id, tab_title, cell_updates):
+    """cell_updates: dict mapping (1-based row number, 1-based column index)
+    to the value to write. Uses the values().batchUpdate endpoint (not the
+    grid-based batchUpdate highlight_rows uses) since it takes plain values
+    directly rather than typed userEnteredValue objects."""
+    if not cell_updates:
+        return
+    data = [
+        {
+            "range": f"{_quote_sheet_title(tab_title)}!{get_column_letter(col_idx)}{row_number}",
+            "values": [[value]],
+        }
+        for (row_number, col_idx), value in cell_updates.items()
+    ]
+    try:
+        service.spreadsheets().values().batchUpdate(
+            spreadsheetId=spreadsheet_id,
+            body={"valueInputOption": "USER_ENTERED", "data": data},
+        ).execute()
     except HttpError as exc:
         raise _wrap_http_error(exc)
 
@@ -128,6 +156,7 @@ def _find_example_value(values, col_idx, max_scan_rows):
 
 def _wrap_http_error(exc):
     status = exc.resp.status if exc.resp is not None else None
+    current_app.logger.error("Google Sheets API error (status=%s): %s", status, exc.content)
     if status == 404:
         return FileValidationError("Couldn't find this Google Sheet. Please check the link and try again.")
     if status == 403:

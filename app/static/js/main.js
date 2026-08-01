@@ -1,23 +1,27 @@
 (function () {
   const $ = (id) => document.getElementById(id);
 
-  const serviceAccountBanner = $("serviceAccountBanner");
-  const serviceAccountEmail = $("serviceAccountEmail");
-  const uploadSection = $("uploadSection");
+  const signInSection = $("signInSection");
+  const signOutBtn = $("signOutBtn");
+  const pickerSection = $("pickerSection");
+  const pickSheetBtn = $("pickSheetBtn");
+  const selectedSheetName = $("selectedSheetName");
+  const tabsSection = $("tabsSection");
   const processingSection = $("processingSection");
   const resultsArea = $("resultsArea");
   const errorArea = $("errorArea");
 
-  const trackingUrlInput = $("trackingUrlInput");
-  const mainUrlInput = $("mainUrlInput");
-  const trackingFilename = $("trackingFilename");
-  const mainFilename = $("mainFilename");
-  const trackingWorksheetSelect = $("trackingWorksheetSelect");
-  const mainWorksheetSelect = $("mainWorksheetSelect");
+  const trackingTabSelect = $("trackingTabSelect");
+  const mainTabSelect = $("mainTabSelect");
+  const netPayableTabSelect = $("netPayableTabSelect");
   const trackingColumnSelect = $("trackingColumnSelect");
+  const trackingStatusColumnSelect = $("trackingStatusColumnSelect");
   const mainColumnSelect = $("mainColumnSelect");
+  const netPayableTrackingColumnSelect = $("netPayableTrackingColumnSelect");
+  const netPayableValueColumnSelect = $("netPayableValueColumnSelect");
   const trackingHasHeader = $("trackingHasHeader");
   const mainHasHeader = $("mainHasHeader");
+  const netPayableHasHeader = $("netPayableHasHeader");
   const processBtn = $("processBtn");
   const resetBtn = $("resetBtn");
   const processAnotherBtn = $("processAnotherBtn");
@@ -25,6 +29,11 @@
   const summaryList = $("summaryList");
   const viewSheetBtn = $("viewSheetBtn");
   const downloadUnmatchedBtn = $("downloadUnmatchedBtn");
+
+  const AUTH_ERROR_MESSAGES = {
+    consent_denied: "Google sign-in was cancelled.",
+    sign_in_failed: "Google sign-in failed. Please try again.",
+  };
 
   function showError(message) {
     errorArea.textContent = message;
@@ -43,16 +52,15 @@
     return label;
   }
 
-  function populateWorksheetSelect(selectEl, worksheets, selected) {
+  function populateTabSelect(selectEl, tabs, selected) {
     selectEl.innerHTML = "";
-    worksheets.forEach((name) => {
+    tabs.forEach((name) => {
       const option = document.createElement("option");
       option.value = name;
       option.textContent = name;
       if (name === selected) option.selected = true;
       selectEl.appendChild(option);
     });
-    selectEl.disabled = worksheets.length <= 1;
   }
 
   function populateColumnSelect(selectEl, columns, detectedLetter) {
@@ -67,62 +75,129 @@
     selectEl.disabled = false;
   }
 
-  function applyConnectResult(data) {
-    populateWorksheetSelect(
-      trackingWorksheetSelect,
-      data.tracking_file.worksheets,
-      data.tracking_file.selected_worksheet
-    );
-    populateColumnSelect(trackingColumnSelect, data.tracking_file.columns, data.tracking_file.detected_column);
-    populateWorksheetSelect(mainWorksheetSelect, data.main_file.worksheets, data.main_file.selected_worksheet);
-    populateColumnSelect(mainColumnSelect, data.main_file.columns, data.main_file.detected_column);
-    maybeEnableProcessButton();
-  }
-
   function maybeEnableProcessButton() {
-    const trackingReady = trackingColumnSelect.options.length > 0;
+    const trackingReady = trackingColumnSelect.options.length > 0 && trackingStatusColumnSelect.options.length > 0;
     const mainReady = mainColumnSelect.options.length > 0;
-    processBtn.disabled = !(trackingReady && mainReady);
+    const netPayableReady =
+      netPayableTrackingColumnSelect.options.length > 0 && netPayableValueColumnSelect.options.length > 0;
+    processBtn.disabled = !(trackingReady && mainReady && netPayableReady);
   }
 
-  function maybeConnectSheets() {
-    if (trackingUrlInput.value.trim() && mainUrlInput.value.trim()) {
-      connectSheets();
-    }
-  }
-
-  function connectSheets() {
+  function loadColumnsForTab(tabName, columnSelectEl, statusSelectEl, netPayableSelectEl) {
     clearError();
-    fetch("/connect-sheets", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        tracking_sheet_url: trackingUrlInput.value.trim(),
-        main_sheet_url: mainUrlInput.value.trim(),
-      }),
-    })
+    fetch(`/worksheet-columns?tab=${encodeURIComponent(tabName)}`)
       .then((response) => response.json().then((data) => ({ ok: response.ok, data })))
       .then(({ ok, data }) => {
         if (!ok) {
-          showError(data.error || "Could not connect to those Google Sheets.");
+          showError(data.error || "Could not read the selected tab.");
           return;
         }
-        applyConnectResult(data);
+        populateColumnSelect(columnSelectEl, data.columns, data.detected_column);
+        if (statusSelectEl) {
+          populateColumnSelect(statusSelectEl, data.columns, data.detected_status_column);
+        }
+        if (netPayableSelectEl) {
+          populateColumnSelect(netPayableSelectEl, data.columns, data.detected_net_payable_column);
+        }
+        maybeEnableProcessButton();
       })
       .catch(() => showError("Could not reach the server. Please try again."));
   }
 
-  function fetchColumnsForSheet(fileKey, sheetName, columnSelectEl) {
+  function showTabsAndProcessing(
+    spreadsheetTitle,
+    tabs,
+    trackingTab,
+    mainTab,
+    netPayableTab,
+    trackingFile,
+    mainFile,
+    netPayableFile
+  ) {
+    selectedSheetName.textContent = spreadsheetTitle;
+    pickerSection.classList.remove("hidden");
+    tabsSection.classList.remove("hidden");
+    processingSection.classList.remove("hidden");
+
+    populateTabSelect(trackingTabSelect, tabs, trackingTab);
+    populateTabSelect(mainTabSelect, tabs, mainTab);
+    populateTabSelect(netPayableTabSelect, tabs, netPayableTab);
+
+    if (trackingFile) {
+      populateColumnSelect(trackingColumnSelect, trackingFile.columns, trackingFile.detected_column);
+      populateColumnSelect(trackingStatusColumnSelect, trackingFile.columns, trackingFile.detected_status_column);
+    } else {
+      loadColumnsForTab(trackingTab, trackingColumnSelect, trackingStatusColumnSelect);
+    }
+    if (mainFile) {
+      populateColumnSelect(mainColumnSelect, mainFile.columns, mainFile.detected_column);
+    } else {
+      loadColumnsForTab(mainTab, mainColumnSelect);
+    }
+    if (netPayableFile) {
+      populateColumnSelect(netPayableTrackingColumnSelect, netPayableFile.columns, netPayableFile.detected_column);
+      populateColumnSelect(
+        netPayableValueColumnSelect,
+        netPayableFile.columns,
+        netPayableFile.detected_net_payable_column
+      );
+    } else {
+      loadColumnsForTab(netPayableTab, netPayableTrackingColumnSelect, null, netPayableValueColumnSelect);
+    }
+    maybeEnableProcessButton();
+  }
+
+  function connectSheet(spreadsheetId) {
     clearError();
-    fetch(`/worksheet-columns?file=${encodeURIComponent(fileKey)}&sheet=${encodeURIComponent(sheetName)}`)
+    fetch("/connect-sheet", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ spreadsheet_id: spreadsheetId }),
+    })
       .then((response) => response.json().then((data) => ({ ok: response.ok, data })))
       .then(({ ok, data }) => {
         if (!ok) {
-          showError(data.error || "Could not read the selected worksheet.");
+          showError(data.error || "Could not connect to that Google Sheet.");
           return;
         }
-        populateColumnSelect(columnSelectEl, data.columns, data.detected_column);
-        maybeEnableProcessButton();
+        showTabsAndProcessing(
+          data.spreadsheet_title,
+          data.tabs,
+          data.tracking_tab,
+          data.main_tab,
+          data.net_payable_tab,
+          data.tracking_file,
+          data.main_file,
+          data.net_payable_file
+        );
+      })
+      .catch(() => showError("Could not reach the server. Please try again."));
+  }
+
+  function openPicker() {
+    clearError();
+    fetch("/picker-token")
+      .then((response) => response.json().then((data) => ({ ok: response.ok, data })))
+      .then(({ ok, data }) => {
+        if (!ok) {
+          showError(data.error || "Could not start the Google Sheet picker.");
+          return;
+        }
+        gapi.load("picker", () => {
+          const view = new google.picker.DocsView(google.picker.ViewId.SPREADSHEETS);
+          const picker = new google.picker.PickerBuilder()
+            .addView(view)
+            .setOAuthToken(data.token)
+            .setDeveloperKey(data.api_key)
+            .setAppId(data.app_id)
+            .setCallback((pickerData) => {
+              if (pickerData.action === google.picker.Action.PICKED) {
+                connectSheet(pickerData.docs[0].id);
+              }
+            })
+            .build();
+          picker.setVisible(true);
+        });
       })
       .catch(() => showError("Could not reach the server. Please try again."));
   }
@@ -140,7 +215,12 @@
       unique_tracking_numbers_searched: "Unique tracking numbers searched",
       tracking_numbers_matched: "Tracking numbers matched",
       tracking_numbers_not_matched: "Tracking numbers not matched",
+      rows_marked_delivered: "Rows marked Delivered (green)",
+      rows_marked_return: "Rows marked Return (red)",
+      rows_with_unrecognized_status: "Matched rows with an unrecognized status (left uncolored)",
       total_rows_highlighted: "Total rows highlighted",
+      net_payable_rows_updated: "Net Payable values updated",
+      net_payable_column: "Net Payable column",
       processing_status: "Processing status",
       processing_datetime: "Processing date and time",
     };
@@ -162,12 +242,12 @@
     renderSummary(data.summary);
     viewSheetBtn.href = data.main_sheet_url;
     downloadUnmatchedBtn.href = `/download-unmatched/${data.unmatched_token}`;
-    uploadSection.classList.add("hidden");
+    tabsSection.classList.add("hidden");
     processingSection.classList.add("hidden");
     resultsArea.classList.remove("hidden");
   }
 
-  function processFiles() {
+  function processSheet() {
     clearError();
     setLoading(true);
 
@@ -175,12 +255,17 @@
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        tracking_sheet: trackingWorksheetSelect.value,
+        tracking_tab: trackingTabSelect.value,
         tracking_column: trackingColumnSelect.value,
+        tracking_status_column: trackingStatusColumnSelect.value,
         tracking_has_header: trackingHasHeader.checked,
-        main_sheet: mainWorksheetSelect.value,
+        main_tab: mainTabSelect.value,
         main_column: mainColumnSelect.value,
         main_has_header: mainHasHeader.checked,
+        net_payable_tab: netPayableTabSelect.value,
+        net_payable_tracking_column: netPayableTrackingColumnSelect.value,
+        net_payable_value_column: netPayableValueColumnSelect.value,
+        net_payable_has_header: netPayableHasHeader.checked,
       }),
     })
       .then((response) => response.json().then((data) => ({ ok: response.ok, data })))
@@ -204,17 +289,43 @@
     fetch("/reset", { method: "POST" }).finally(() => window.location.reload());
   }
 
-  function restoreSessionState() {
+  function signOut() {
+    fetch("/google/logout", { method: "POST" }).finally(() => window.location.reload());
+  }
+
+  function showSignedOutUI() {
+    signInSection.classList.remove("hidden");
+    signOutBtn.classList.add("hidden");
+    pickerSection.classList.add("hidden");
+    tabsSection.classList.add("hidden");
+    processingSection.classList.add("hidden");
+  }
+
+  function showSignedInUI() {
+    signInSection.classList.add("hidden");
+    signOutBtn.classList.remove("hidden");
+    pickerSection.classList.remove("hidden");
+  }
+
+  function restoreSheetState() {
     fetch("/sheets-status")
       .then((response) => response.json())
       .then((data) => {
         if (!data.connected) return;
 
-        trackingUrlInput.value = data.tracking_url || "";
-        mainUrlInput.value = data.main_url || "";
-        trackingFilename.textContent = data.tracking_name || "";
-        mainFilename.textContent = data.main_name || "";
-        applyConnectResult(data);
+        const trackingTab = data.tabs[0];
+        const mainTab = data.tabs.length > 1 ? data.tabs[1] : data.tabs[0];
+        const netPayableTab = data.tabs.length > 2 ? data.tabs[2] : data.tabs[0];
+        showTabsAndProcessing(
+          data.spreadsheet_title,
+          data.tabs,
+          trackingTab,
+          mainTab,
+          netPayableTab,
+          null,
+          null,
+          null
+        );
 
         if (data.result) {
           showResults(data.result);
@@ -223,34 +334,46 @@
       .catch(() => {});
   }
 
-  function loadServiceAccountEmail() {
-    fetch("/service-account-email")
-      .then((response) => response.json())
-      .then((data) => {
-        if (data.email) {
-          serviceAccountEmail.textContent = data.email;
-          serviceAccountBanner.classList.remove("hidden");
-        } else if (data.error) {
-          showError(data.error);
-        }
-      })
-      .catch(() => {});
+  function checkAuthError() {
+    const params = new URLSearchParams(window.location.search);
+    const authError = params.get("auth_error");
+    if (authError) {
+      showError(AUTH_ERROR_MESSAGES[authError] || "Google sign-in failed. Please try again.");
+      params.delete("auth_error");
+      const newSearch = params.toString();
+      history.replaceState(null, "", window.location.pathname + (newSearch ? `?${newSearch}` : ""));
+    }
   }
 
-  trackingUrlInput.addEventListener("change", maybeConnectSheets);
-  mainUrlInput.addEventListener("change", maybeConnectSheets);
+  function init() {
+    checkAuthError();
+    fetch("/auth-status")
+      .then((response) => response.json())
+      .then((data) => {
+        if (data.authenticated) {
+          showSignedInUI();
+          restoreSheetState();
+        } else {
+          showSignedOutUI();
+        }
+      })
+      .catch(() => showSignedOutUI());
+  }
 
-  trackingWorksheetSelect.addEventListener("change", () =>
-    fetchColumnsForSheet("tracking", trackingWorksheetSelect.value, trackingColumnSelect)
+  pickSheetBtn.addEventListener("click", openPicker);
+
+  trackingTabSelect.addEventListener("change", () =>
+    loadColumnsForTab(trackingTabSelect.value, trackingColumnSelect, trackingStatusColumnSelect)
   );
-  mainWorksheetSelect.addEventListener("change", () =>
-    fetchColumnsForSheet("main", mainWorksheetSelect.value, mainColumnSelect)
+  mainTabSelect.addEventListener("change", () => loadColumnsForTab(mainTabSelect.value, mainColumnSelect));
+  netPayableTabSelect.addEventListener("change", () =>
+    loadColumnsForTab(netPayableTabSelect.value, netPayableTrackingColumnSelect, null, netPayableValueColumnSelect)
   );
 
-  processBtn.addEventListener("click", processFiles);
+  processBtn.addEventListener("click", processSheet);
   resetBtn.addEventListener("click", resetAll);
   processAnotherBtn.addEventListener("click", resetAll);
+  signOutBtn.addEventListener("click", signOut);
 
-  loadServiceAccountEmail();
-  restoreSessionState();
+  init();
 })();

@@ -6,31 +6,34 @@
   <title>Excel Tracking Number Matcher</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
-<body>
+<body data-google-api-key="{{ google_api_key }}">
   <header>
     <h1>Excel Tracking Number Matcher</h1>
-    <p>Paste a link to your tracking-number Google Sheet and your main Google Sheet. The system will find matching tracking numbers and highlight their complete rows in red &mdash; directly in your main sheet.</p>
+    <p>Sign in with Google, pick a Google Sheet, and choose which tab holds your tracking numbers (with a status column), which tab is the main data, and which tab holds Net Payable amounts. Matching rows are highlighted directly in that sheet &mdash; green for "Delivered", red for "Return" &mdash; and Net Payable values are filled in alongside.</p>
+    <button id="signOutBtn" class="link-button hidden">Sign out</button>
   </header>
 
-  <section id="serviceAccountBanner" class="info-banner hidden">
-    <p>
-      Before pasting a link below, share each Google Sheet with this account
-      (Editor access): <strong id="serviceAccountEmail"></strong>
-    </p>
+  <section id="signInSection" class="sign-in-section hidden">
+    <p>Sign in with Google to select a Sheet.</p>
+    <a id="googleSignInBtn" class="button" href="/google/login">Continue with Google</a>
   </section>
 
-  <section id="uploadSection" class="upload-section">
-    <div class="upload-card" id="trackingCard">
-      <h2>Tracking Number Sheet</h2>
-      <label for="trackingUrlInput">Google Sheet link</label>
-      <input type="text" id="trackingUrlInput" placeholder="https://docs.google.com/spreadsheets/d/...">
-      <p class="filename" id="trackingFilename"></p>
+  <section id="pickerSection" class="picker-section hidden">
+    <button id="pickSheetBtn" class="button">Select Google Sheet</button>
+    <p class="filename" id="selectedSheetName"></p>
+  </section>
 
-      <label for="trackingWorksheetSelect">Worksheet</label>
-      <select id="trackingWorksheetSelect" disabled></select>
+  <section id="tabsSection" class="upload-section hidden">
+    <div class="upload-card" id="trackingCard">
+      <h2>Tracking Number Tab</h2>
+      <label for="trackingTabSelect">Tab</label>
+      <select id="trackingTabSelect"></select>
 
       <label for="trackingColumnSelect">Tracking Number Column</label>
       <select id="trackingColumnSelect" disabled></select>
+
+      <label for="trackingStatusColumnSelect">Status Column</label>
+      <select id="trackingStatusColumnSelect" disabled></select>
 
       <label class="checkbox-label">
         <input type="checkbox" id="trackingHasHeader" checked>
@@ -39,13 +42,9 @@
     </div>
 
     <div class="upload-card" id="mainCard">
-      <h2>Main Sheet</h2>
-      <label for="mainUrlInput">Google Sheet link</label>
-      <input type="text" id="mainUrlInput" placeholder="https://docs.google.com/spreadsheets/d/...">
-      <p class="filename" id="mainFilename"></p>
-
-      <label for="mainWorksheetSelect">Worksheet</label>
-      <select id="mainWorksheetSelect" disabled></select>
+      <h2>Main Tab</h2>
+      <label for="mainTabSelect">Tab</label>
+      <select id="mainTabSelect"></select>
 
       <label for="mainColumnSelect">Tracking Number Column</label>
       <select id="mainColumnSelect" disabled></select>
@@ -55,14 +54,31 @@
         First row contains headers
       </label>
     </div>
+
+    <div class="upload-card" id="netPayableCard">
+      <h2>Net Payable Tab</h2>
+      <label for="netPayableTabSelect">Tab</label>
+      <select id="netPayableTabSelect"></select>
+
+      <label for="netPayableTrackingColumnSelect">Tracking Number Column</label>
+      <select id="netPayableTrackingColumnSelect" disabled></select>
+
+      <label for="netPayableValueColumnSelect">Net Payable Column</label>
+      <select id="netPayableValueColumnSelect" disabled></select>
+
+      <label class="checkbox-label">
+        <input type="checkbox" id="netPayableHasHeader" checked>
+        First row contains headers
+      </label>
+    </div>
   </section>
 
-  <section id="processingSection" class="processing-section">
-    <button id="processBtn" disabled>Process Files</button>
+  <section id="processingSection" class="processing-section hidden">
+    <button id="processBtn" disabled>Process Sheet</button>
     <button id="resetBtn">Reset</button>
     <div id="loadingIndicator" class="loading hidden">
       <span class="spinner"></span>
-      Processing Google Sheets. Please do not refresh the page.
+      Processing Google Sheet. Please do not refresh the page.
     </div>
   </section>
 
@@ -74,10 +90,11 @@
     <div class="result-actions">
       <a id="viewSheetBtn" class="button" href="#" target="_blank" rel="noopener">View Updated Google Sheet &#8599;</a>
       <a id="downloadUnmatchedBtn" class="button" href="#" download>Download Unmatched Tracking Numbers</a>
-      <button id="processAnotherBtn">Process Another File</button>
+      <button id="processAnotherBtn">Process Another Sheet</button>
     </div>
   </section>
 
+  <script src="https://apis.google.com/js/api.js"></script>
   <script src="{{ url_for('static', filename='js/main.js') }}"></script>
 </body>
 </html>
