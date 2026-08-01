@@ -39,6 +39,13 @@
         <input type="checkbox" id="trackingHasHeader" checked>
         First row contains headers
       </label>
+
+      <button id="fetchTcsStatusBtn" class="button" disabled>Fetch Latest Status (TCS)</button>
+      <div id="tcsFetchLoading" class="loading hidden">
+        <span class="spinner"></span>
+        Fetching live tracking statuses from TCS Express. This can take a moment for large lists.
+      </div>
+      <ul id="tcsFetchSummaryList"></ul>
     </div>
 
     <div class="upload-card" id="mainCard">

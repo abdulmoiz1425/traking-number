@@ -9,6 +9,7 @@ from app.services.google_auth_service import (
     is_authenticated,
     store_credentials_from_callback,
 )
+from app.services.matching_engine import DELIVERED_STATUS, RETURN_STATUS
 from app.services.sheets_processing_service import (
     cleanup_stale_output_folders,
     clear_sheets_session,
@@ -19,6 +20,7 @@ from app.services.sheets_processing_service import (
     process_sheets,
     set_last_result,
 )
+from app.services.tcs_status_update_service import fetch_statuses_for_tracking_tab, write_statuses_to_tracking_tab
 
 main_bp = Blueprint("main", __name__)
 
@@ -114,6 +116,51 @@ def worksheet_columns():
 @main_bp.route("/sheets-status")
 def sheets_status():
     return jsonify(get_sheets_status())
+
+
+@main_bp.route("/fetch-tcs-statuses", methods=["POST"])
+def fetch_tcs_statuses():
+    data = request.get_json(silent=True) or {}
+
+    tracking_tab = data.get("tracking_tab")
+    tracking_column = data.get("tracking_column")
+    tracking_status_column = data.get("tracking_status_column")
+    tracking_has_header = bool(data.get("tracking_has_header", True))
+
+    if not tracking_tab or not tracking_column or not tracking_status_column:
+        return jsonify({"error": "Please select the tracking-number tab, tracking column, and status column."}), 400
+
+    try:
+        get_connected_sheet()  # surfaces a clear "please connect a sheet" error before touching the API
+        lookup_result = fetch_statuses_for_tracking_tab(tracking_tab, tracking_column, tracking_has_header)
+        write_result = write_statuses_to_tracking_tab(
+            tracking_tab=tracking_tab,
+            tracking_column_letter=tracking_column,
+            status_column_letter=tracking_status_column,
+            tracking_has_header=tracking_has_header,
+            classified_status_by_tracking_number=lookup_result["classified_status_by_tracking_number"],
+            raw_status_by_tracking_number=lookup_result["raw_status_by_tracking_number"],
+        )
+    except FileValidationError as exc:
+        return jsonify({"error": str(exc)}), 400
+    except Exception:
+        current_app.logger.exception("Unexpected error while fetching live tracking statuses")
+        return jsonify({"error": "An unexpected error occurred while fetching live tracking statuses."}), 500
+
+    classified = lookup_result["classified_status_by_tracking_number"]
+    summary = {
+        "total_tracking_numbers_read": lookup_result["total_tracking_numbers_read"],
+        "duplicate_tracking_numbers_removed": lookup_result["duplicate_tracking_numbers_removed"],
+        "unique_tracking_numbers_searched": lookup_result["unique_tracking_numbers_searched"],
+        "delivered_count": sum(1 for v in classified.values() if v == DELIVERED_STATUS),
+        "return_count": sum(1 for v in classified.values() if v == RETURN_STATUS),
+        "unclassified_count": sum(1 for v in classified.values() if v is None),
+        "not_found_count": len(lookup_result["not_found"]),
+        "error_count": len(lookup_result["errors"]),
+        "rows_updated": write_result["rows_updated"],
+    }
+
+    return jsonify({"summary": summary})
 
 
 @main_bp.route("/process", methods=["POST"])

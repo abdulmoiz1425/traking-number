@@ -41,6 +41,33 @@ def _read_tracking_pairs(values, tracking_column_index, other_column_index, has_
     }
 
 
+def read_unique_tracking_numbers(values, column_index, has_header):
+    data_start_row = 2 if has_header else 1
+    unique = set()
+    total_read = 0
+    blanks_ignored = 0
+    duplicates_removed = 0
+
+    for row in values[data_start_row - 1 :]:
+        raw_value = row[column_index - 1] if column_index - 1 < len(row) else None
+        normalized = normalize_tracking_number(raw_value)
+        if normalized is None:
+            blanks_ignored += 1
+            continue
+        total_read += 1
+        if normalized in unique:
+            duplicates_removed += 1
+        else:
+            unique.add(normalized)
+
+    return {
+        "unique_values": unique,
+        "total_read": total_read,
+        "blanks_ignored": blanks_ignored,
+        "duplicates_removed": duplicates_removed,
+    }
+
+
 def read_tracking_numbers_with_status(values, tracking_column_index, status_column_index, has_header):
     result = _read_tracking_pairs(values, tracking_column_index, status_column_index, has_header)
     # Same normalization as tracking numbers (trim, uppercase) - blank cells

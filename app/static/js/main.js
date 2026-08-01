@@ -29,6 +29,9 @@
   const summaryList = $("summaryList");
   const viewSheetBtn = $("viewSheetBtn");
   const downloadUnmatchedBtn = $("downloadUnmatchedBtn");
+  const fetchTcsStatusBtn = $("fetchTcsStatusBtn");
+  const tcsFetchLoading = $("tcsFetchLoading");
+  const tcsFetchSummaryList = $("tcsFetchSummaryList");
 
   const AUTH_ERROR_MESSAGES = {
     consent_denied: "Google sign-in was cancelled.",
@@ -81,6 +84,7 @@
     const netPayableReady =
       netPayableTrackingColumnSelect.options.length > 0 && netPayableValueColumnSelect.options.length > 0;
     processBtn.disabled = !(trackingReady && mainReady && netPayableReady);
+    fetchTcsStatusBtn.disabled = !trackingReady;
   }
 
   function loadColumnsForTab(tabName, columnSelectEl, statusSelectEl, netPayableSelectEl) {
@@ -285,6 +289,60 @@
       });
   }
 
+  function renderTcsFetchSummary(summary) {
+    const labels = {
+      total_tracking_numbers_read: "Total tracking numbers read",
+      duplicate_tracking_numbers_removed: "Duplicates removed",
+      unique_tracking_numbers_searched: "Unique tracking numbers looked up",
+      delivered_count: "Delivered",
+      return_count: "Return",
+      unclassified_count: "Still in transit / other status",
+      not_found_count: "Not found on TCS",
+      error_count: "Lookup errors",
+      rows_updated: "Rows updated in sheet",
+    };
+    tcsFetchSummaryList.innerHTML = "";
+    Object.entries(labels).forEach(([key, label]) => {
+      if (!(key in summary)) return;
+      const li = document.createElement("li");
+      li.textContent = `${label}: ${summary[key]}`;
+      tcsFetchSummaryList.appendChild(li);
+    });
+  }
+
+  function fetchTcsStatuses() {
+    clearError();
+    tcsFetchSummaryList.innerHTML = "";
+    tcsFetchLoading.classList.remove("hidden");
+    fetchTcsStatusBtn.disabled = true;
+
+    fetch("/fetch-tcs-statuses", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        tracking_tab: trackingTabSelect.value,
+        tracking_column: trackingColumnSelect.value,
+        tracking_status_column: trackingStatusColumnSelect.value,
+        tracking_has_header: trackingHasHeader.checked,
+      }),
+    })
+      .then((response) => response.json().then((data) => ({ ok: response.ok, data })))
+      .then(({ ok, data }) => {
+        tcsFetchLoading.classList.add("hidden");
+        fetchTcsStatusBtn.disabled = false;
+        if (!ok) {
+          showError(data.error || "Could not fetch live tracking statuses.");
+          return;
+        }
+        renderTcsFetchSummary(data.summary);
+      })
+      .catch(() => {
+        tcsFetchLoading.classList.add("hidden");
+        fetchTcsStatusBtn.disabled = false;
+        showError("Could not reach the server. Please try again.");
+      });
+  }
+
   function resetAll() {
     fetch("/reset", { method: "POST" }).finally(() => window.location.reload());
   }
@@ -371,6 +429,7 @@
   );
 
   processBtn.addEventListener("click", processSheet);
+  fetchTcsStatusBtn.addEventListener("click", fetchTcsStatuses);
   resetBtn.addEventListener("click", resetAll);
   processAnotherBtn.addEventListener("click", resetAll);
   signOutBtn.addEventListener("click", signOut);

@@ -163,3 +163,61 @@ def test_process_missing_column_selection_returns_error(client, monkeypatch):
 def test_download_unmatched_with_invalid_token_returns_404(client):
     resp = client.get("/download-unmatched/not-a-real-token")
     assert resp.status_code == 404
+
+
+def test_fetch_tcs_statuses_requires_tab_and_columns(client):
+    resp = client.post("/fetch-tcs-statuses", json={})
+    assert resp.status_code == 400
+
+
+def test_fetch_tcs_statuses_requires_connected_sheet(client):
+    resp = client.post(
+        "/fetch-tcs-statuses",
+        json={"tracking_tab": "Sheet1", "tracking_column": "A", "tracking_status_column": "B"},
+    )
+    assert resp.status_code == 400
+    assert "connected google sheet" in resp.get_json()["error"].lower()
+
+
+def test_fetch_tcs_statuses_happy_path(client, monkeypatch):
+    _patch_sheets(monkeypatch)
+    _connect(client)
+
+    from app.services import tcs_status_update_service as tsu
+
+    monkeypatch.setattr(tsu, "get_credentials", lambda: object())
+    monkeypatch.setattr(tsu, "get_client", lambda creds: object())
+    monkeypatch.setattr(tsu, "read_values", lambda service, sid, tab: VALUES[tab])
+
+    def fake_track_shipment(tracking_number):
+        return {
+            "ABC123": {"outcome": "found", "tracking_status": "Delivered"},
+            "DEF456": {"outcome": "found", "tracking_status": "Undelivered Due To Incorrect Address"},
+        }[tracking_number]
+
+    monkeypatch.setattr(tsu, "track_shipment", fake_track_shipment)
+
+    write_calls = []
+    monkeypatch.setattr(
+        tsu,
+        "write_values",
+        lambda service, sid, tab, cell_updates: write_calls.append((sid, tab, dict(cell_updates))),
+    )
+
+    resp = client.post(
+        "/fetch-tcs-statuses",
+        json={"tracking_tab": "Sheet1", "tracking_column": "A", "tracking_status_column": "B"},
+    )
+    assert resp.status_code == 200
+    summary = resp.get_json()["summary"]
+    assert summary["unique_tracking_numbers_searched"] == 2
+    assert summary["delivered_count"] == 1
+    assert summary["return_count"] == 1
+    assert summary["unclassified_count"] == 0
+    assert summary["not_found_count"] == 0
+    assert summary["error_count"] == 0
+    assert summary["rows_updated"] == 2
+
+    _, tab, cell_updates = write_calls[0]
+    assert tab == "Sheet1"
+    assert cell_updates == {(2, 2): "Delivered", (3, 2): "Return"}
